@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kartesian | Jigsaw Engineering Pro</title>
+    <style>
+        :root {
+            --navy: #0f172a;
+            --green: #10b981;
+            --blue: #3b82f6;
+            --gold: #f59e0b;
+            --canvas: 450px; 
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #ffffff; margin: 0; padding: 0;
+            display: flex; flex-direction: column; align-items: center;
+            color: #1e293b; user-select: none;
+        }
+
+        .stats-bar {
+            width: 100%; background: var(--navy); color: #f8fafc;
+            padding: 14px 0; display: flex; justify-content: center;
+            gap: 50px; font-size: 0.9rem; font-weight: 700;
+            border-bottom: 2px solid var(--green);
+        }
+
+        /* Branding with Mini Logo */
+        .brand { 
+            display: flex; align-items: center; justify-content: center; 
+            gap: 15px; padding: 25px 0; 
+        }
+        .mini-logo { width: 40px; height: 40px; }
+        .brand-h1 {
+            font-size: 2.6rem; font-weight: 900; color: var(--navy);
+            margin: 0; letter-spacing: -2px; text-transform: uppercase;
+        }
+
+        .ui-panel { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 25px; }
+        .btn-group { display: flex; gap: 12px; align-items: center; }
+        
+        select, .upload-trigger {
+            padding: 10px 18px; border: 2px solid #e2e8f0; border-radius: 8px;
+            background: #fff; cursor: pointer; font-weight: 700;
+        }
+
+        .btn {
+            padding: 10px 25px; border-radius: 8px; border: none;
+            font-weight: 800; cursor: pointer; text-transform: uppercase;
+            transition: 0.2s;
+        }
+        .btn-hint { background: var(--gold); color: #fff; }
+        .btn-reset { background: var(--blue); color: #fff; }
+        .btn-solve { background: #e2e8f0; color: #475569; }
+        .btn-solve:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .gallery-wrap {
+            width: 95%; max-width: 1300px; display: flex; gap: 10px;
+            overflow-x: auto; padding: 10px 0 20px; margin-bottom: 20px;
+        }
+        .gal-item {
+            flex: 0 0 100px; height: 65px; border-radius: 6px;
+            border: 3px solid transparent; background-size: cover; 
+            background-position: center; cursor: pointer;
+        }
+        .gal-item.active { border-color: var(--green); transform: scale(1.05); }
+
+        .workspace {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 30px; width: 95%; max-width: 1450px; margin-bottom: 50px;
+        }
+
+        .pane { display: flex; flex-direction: column; position: relative; }
+        .label { font-size: 0.75rem; font-weight: 900; color: #64748b; margin-bottom: 10px; }
+
+        .frame {
+            height: var(--canvas); width: var(--canvas);
+            background: #fff; border: 1px solid #e2e8f0;
+            position: relative; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        }
+        
+        #target-board { border: 4px solid var(--green); display: grid; }
+        #pool-grid { display: grid; width: 100%; height: 100%; }
+
+        .tile, .slot { 
+            width: 100%; height: 100%; 
+            background-repeat: no-repeat;
+            background-size: var(--canvas) var(--canvas) !important; 
+        }
+
+        .slot {
+            border: 1px solid #f1f5f9; display: flex;
+            align-items: center; justify-content: center;
+            color: #cbd5e0; font-weight: 900;
+        }
+        
+        .tile { cursor: grab; position: relative; }
+        .tile.selected { outline: 6px solid var(--blue); z-index: 100; }
+        .tile.hidden { visibility: hidden; pointer-events: none; }
+
+        .magnifier {
+            position: absolute; width: 200px; height: 200px;
+            border: 6px solid #fff; border-radius: 50%;
+            pointer-events: none; display: none; z-index: 1000;
+            background-repeat: no-repeat; background-color: #fff;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+        }
+
+        .num-hint {
+            position: absolute; inset: 0; background: rgba(15, 23, 42, 0.8);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            opacity: 0; font-weight: 900; pointer-events: none;
+        }
+        .hints-active .num-hint { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="stats-bar">
+        <div>TIME: <span id="ui-time">0</span>s</div>
+        <div>SCORE: <span id="ui-score">0</span></div>
+        <div>PROGRESS: <span id="ui-prog">0</span>%</div>
+    </div>
+
+    <div class="brand">
+        <svg class="mini-logo" viewBox="0 0 100 100">
+            <rect x="20" y="20" width="50" height="50" transform="rotate(45 45 45)" fill="none" stroke="var(--navy)" stroke-width="8"/>
+            <rect x="35" y="35" width="45" height="45" transform="rotate(45 57 57)" fill="var(--navy)"/>
+        </svg>
+        <h1 class="brand-h1">Kartesian</h1>
+    </div>
+
+    <div class="ui-panel">
+        <div class="btn-group">
+            <input type="file" id="imgInput" style="display:none" accept="image/*">
+            <button class="upload-trigger" onclick="document.getElementById('imgInput').click()">📁 LOAD IMAGE</button>
+            <select id="density" onchange="initGame()">
+                <option value="3">3x3</option>
+                <option value="5" selected>5x5</option>
+                <option value="10">10x10</option>
+            </select>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-hint" onclick="triggerHint()">Hint</button>
+            <button class="btn btn-reset" onclick="initGame()">Restart</button>
+            <button class="btn btn-solve" id="solveBtn" onclick="runSolution()">Solution</button>
+        </div>
+    </div>
+
+    <div class="gallery-wrap" id="gallery"></div>
+
+    <div class="workspace">
+        <div class="pane">
+            <div class="label">1. PIECES (SHIFT + HOVER)</div>
+            <div class="frame" id="pool-frame">
+                <div id="pool-grid"></div>
+                <div id="loupe-pool" class="magnifier"></div>
+            </div>
+        </div>
+
+        <div class="pane">
+            <div class="label">2. TARGET MAPPING BOARD</div>
+            <div class="frame" id="target-board"></div>
+        </div>
+
+        <div class="pane">
+            <div class="label">3. REFERENCE (SHIFT + HOVER)</div>
+            <div class="frame" id="ref-frame">
+                <img id="ref-img" src="" style="width:100%; height:100%; object-fit: cover;">
+                <div id="loupe-ref" class="magnifier"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sources = [
+            "https://picsum.photos/id/10/1200/1200", "https://picsum.photos/id/1016/1200/1200",
+            "https://picsum.photos/id/1018/1200/1200", "https://picsum.photos/id/1019/1200/1200",
+            "https://picsum.photos/id/1025/1200/1200", "https://picsum.photos/id/1033/1200/1200",
+            "https://picsum.photos/id/1039/1200/1200", "https://picsum.photos/id/1043/1200/1200",
+            "https://picsum.photos/id/1048/1200/1200", "https://picsum.photos/id/1050/1200/1200"
+        ];
+
+        let activeImg = sources[0];
+        let score = 0, seconds = 0, gameClock = null, solvedCount = 0;
+        let selectedTile = null, shiftHeld = false;
+        const CANVAS = 450; 
+
+        const gal = document.getElementById('gallery');
+        sources.forEach((url, i) => {
+            const div = document.createElement('div');
+            div.className = 'gal-item' + (i === 0 ? ' active' : '');
+            div.style.backgroundImage = `url(${url})`;
+            div.onclick = () => {
+                document.querySelectorAll('.gal-item').forEach(it => it.classList.remove('active'));
+                div.classList.add('active');
+                activeImg = url; initGame();
+            };
+            gal.appendChild(div);
+        });
+
+        function handleLoupe(e, frame, loupe) {
+            if (!shiftHeld) { loupe.style.display = 'none'; return; }
+            const rect = frame.getBoundingClientRect();
+            const x = e.clientX - rect.left, y = e.clientY - rect.top;
+            if (x < 0 || x > CANVAS || y < 0 || y > CANVAS) { loupe.style.display = 'none'; return; }
+
+            const zoom = 2.5;
+            loupe.style.display = 'block';
+            loupe.style.left = `${x - 100}px`;
+            loupe.style.top = `${y - 100}px`;
+            loupe.style.backgroundImage = `url(${activeImg})`;
+            loupe.style.backgroundSize = `${CANVAS * zoom}px ${CANVAS * zoom}px`;
+            loupe.style.backgroundPosition = `-${x * zoom - 100}px -${y * zoom - 100}px`;
+        }
+
+        document.getElementById('pool-frame').onmousemove = (e) => handleLoupe(e, document.getElementById('pool-frame'), document.getElementById('loupe-pool'));
+        document.getElementById('ref-frame').onmousemove = (e) => handleLoupe(e, document.getElementById('ref-frame'), document.getElementById('loupe-ref'));
+        
+        window.onkeydown = (e) => { if(e.key === 'Shift') shiftHeld = true; };
+        window.onkeyup = (e) => { 
+            if(e.key === 'Shift') { 
+                shiftHeld = false; 
+                document.querySelectorAll('.magnifier').forEach(l => l.style.display = 'none');
+            } 
+        };
+
+        function initGame() {
+            clearInterval(gameClock);
+            seconds = 0; score = 0; solvedCount = 0; selectedTile = null;
+            document.getElementById('ref-img').src = activeImg;
+            document.getElementById('solveBtn').disabled = false;
+            document.getElementById('solveBtn').innerText = "Solution";
+
+            const grid = parseInt(document.getElementById('density').value);
+            const tileSize = CANVAS / grid;
+            const board = document.getElementById('target-board'), pool = document.getElementById('pool-grid');
+            
+            board.innerHTML = ''; pool.innerHTML = '';
+            board.style.gridTemplateColumns = `repeat(${grid}, 1fr)`;
+            pool.style.gridTemplateColumns = `repeat(${grid}, 1fr)`;
+
+            let tileSet = [];
+            for(let i=0; i < grid*grid; i++) {
+                const r = Math.floor(i/grid), c = i % grid;
+                const p = document.createElement('div');
+                p.className = 'tile';
+                p.style.backgroundImage = `url(${activeImg})`;
+                p.style.backgroundPosition = `-${c * tileSize}px -${r * tileSize}px`;
+                p.dataset.idx = i;
+                
+                const h = document.createElement('div');
+                h.className = 'num-hint'; h.innerText = i + 1;
+                h.style.fontSize = `${tileSize/3}px`;
+                p.appendChild(h);
+
+                p.onclick = () => { 
+                    if(selectedTile) selectedTile.classList.remove('selected'); 
+                    selectedTile = p; p.classList.add('selected'); 
+                };
+                tileSet.push(p);
+
+                const slot = document.createElement('div');
+                slot.className = 'slot'; slot.dataset.idx = i; slot.innerText = i + 1; 
+                slot.style.fontSize = `${tileSize/4}px`;
+                slot.onclick = () => { if(selectedTile && selectedTile.dataset.idx == i) match(selectedTile, slot); };
+                board.appendChild(slot);
+            }
+            tileSet.sort(() => Math.random() - 0.5).forEach(el => pool.appendChild(el));
+            updateUI();
+            gameClock = setInterval(() => { seconds++; updateUI(); }, 1000);
+        }
+
+        function match(p, s) {
+            s.style.backgroundImage = p.style.backgroundImage;
+            s.style.backgroundPosition = p.style.backgroundPosition;
+            s.innerText = ''; s.style.border = 'none';
+            p.classList.add('hidden');
+            score += 100; solvedCount++; 
+            updateUI(); selectedTile = null;
+            if(solvedCount === Math.pow(parseInt(document.getElementById('density').value), 2)) {
+                clearInterval(gameClock);
+            }
+        }
+
+        async function runSolution() {
+            const btn = document.getElementById('solveBtn');
+            btn.disabled = true;
+            btn.innerText = "Solving...";
+            score = 0;
+            const tiles = Array.from(document.querySelectorAll('.tile:not(.hidden)'));
+            const slots = Array.from(document.querySelectorAll('.slot'));
+            for(let t of tiles) {
+                const s = slots.find(slot => slot.dataset.idx == t.dataset.idx);
+                if(s) {
+                    match(t, s);
+                    await new Promise(r => setTimeout(r, 20));
+                }
+            }
+        }
+
+        function triggerHint() {
+            document.getElementById('pool-grid').classList.add('hints-active');
+            setTimeout(() => document.getElementById('pool-grid').classList.remove('hints-active'), 2000);
+        }
+
+        function updateUI() {
+            const total = Math.pow(parseInt(document.getElementById('density').value), 2);
+            document.getElementById('ui-time').innerText = seconds;
+            document.getElementById('ui-score').innerText = score;
+            document.getElementById('ui-prog').innerText = Math.floor((solvedCount/total)*100);
+        }
+
+        document.getElementById('imgInput').onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = (f) => { activeImg = f.target.result; initGame(); };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+
+        initGame();
+    </script>
+</body>
+</html>
